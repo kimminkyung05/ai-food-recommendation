@@ -1,0 +1,51 @@
+# .github/workflows/keep-alive.yml
+name: Keep Render Server Alive
+
+on:
+  schedule:
+    # 매 10분마다 실행 (UTC 기준)
+    - cron: '*/10 * * * *'
+  workflow_dispatch: # 수동 실행 가능
+
+jobs:
+  keep-alive:
+    runs-on: ubuntu-latest
+    
+    steps:
+    - name: Ping Server
+      run: |
+        echo "서버 상태 확인 중..."
+        
+        # 서버 상태 확인
+        response=$(curl -s -o /dev/null -w "%{http_code}" https://ai-food-recommendation.onrender.com/health)
+        
+        if [ $response -eq 200 ]; then
+          echo "서버 정상 작동 중 (HTTP $response)"
+        else
+          echo "서버 응답 코드: $response"
+          
+          # 기본 엔드포인트도 확인
+          basic_response=$(curl -s -o /dev/null -w "%{http_code}" https://ai-food-recommendation.onrender.com/)
+          echo "기본 엔드포인트 응답: $basic_response"
+        fi
+        
+        # 추가로 기본 엔드포인트도 호출하여 서버 깨우기
+        curl -s https://ai-food-recommendation.onrender.com/ > /dev/null
+        
+        echo "서버 깨우기 완료!"
+
+    - name: API Test (선택사항)
+      run: |
+        echo "간단한 API 테스트 중..."
+        
+        # 실제 추천 API 테스트
+        curl -X POST https://ai-food-recommendation.onrender.com/recommend/simple \
+          -H "Content-Type: application/json" \
+          -d '{
+            "width": 18,
+            "length": 15,
+            "height": 7,
+            "category": "한식",
+            "top_k": 1
+          }' \
+          -s -o /dev/null -w "API 테스트 응답 코드: %{http_code}\n"
