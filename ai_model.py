@@ -11,9 +11,8 @@ from sklearn.ensemble import RandomForestRegressor
 
 warnings.filterwarnings("ignore")
 
-# CSV 경로 설정
+# CSV 경로 설정 - 루트 폴더에 있는 CSV 파일들
 BASE_DIR = os.path.dirname(os.path.abspath(__file__))
-DATA_DIR = os.path.join(BASE_DIR, "data")
 
 def load_csv_robust(filepath):
     """다양한 인코딩을 시도하여 CSV 파일을 안전하게 로드"""
@@ -33,13 +32,14 @@ def load_csv_robust(filepath):
                 continue
         raise Exception(f"모든 인코딩 시도 실패: {filepath}")
 
-# 데이터 로드
+# 데이터 로드 - 루트 폴더에서 직접 로드
 try:
-    menus_df = load_csv_robust(os.path.join(DATA_DIR, "final_menus_data.csv"))
-    restaurants_df = load_csv_robust(os.path.join(DATA_DIR, "restaurants.csv"))
-    print(f"데이터 로드 성공: 메뉴 {len(menus_df)}개, 레스토랑 {len(restaurants_df)}개")
+    menus_df = load_csv_robust(os.path.join(BASE_DIR, "final_menus_data.csv"))
+    restaurants_df = load_csv_robust(os.path.join(BASE_DIR, "restaurants.csv"))
+    print(f"실제 CSV 데이터 로드 성공: 메뉴 {len(menus_df)}개, 레스토랑 {len(restaurants_df)}개")
 except Exception as e:
-    print(f"데이터 로드 오류: {e}")
+    print(f"실제 CSV 데이터 로드 오류: {e}")
+    print("더미 데이터로 대체합니다...")
     # 더미 데이터 생성 (테스트용)
     menus_df = pd.DataFrame({
         'menu_id': range(1, 101),
