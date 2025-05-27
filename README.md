@@ -1,1 +1,1 @@
-# YonggiRoad_AIGO
+# ai-food-recommendation
