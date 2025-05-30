@@ -368,7 +368,7 @@ class AdvancedFoodRecommendationAI:
                         },
                         "volume_utilization": round(volume_utilization, 1),
                         "explanation": explanation,
-                        "contextual_boost": round((contextual_multiplier - 1) * 100, 1)
+                        "contextual_boost": round((contextual_multiplier - 1) * 100, 1),
                         "place_id": place_id
                     }
                     
