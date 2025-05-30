@@ -1,10 +1,12 @@
 import os
 from fastapi import FastAPI, HTTPException
 from fastapi.middleware.cors import CORSMiddleware
+from fastapi.responses import JSONResponse 
 from pydantic import BaseModel, Field
 from typing import Optional, List, Dict, Any
 import logging
 from datetime import datetime
+import json 
 
 # 로깅 설정
 logging.basicConfig(level=logging.INFO)
@@ -30,19 +32,19 @@ app = FastAPI(
 # CORS 설정
 app.add_middleware(
     CORSMiddleware,
-    allow_origins=["*"],  # 프로덕션에서는 구체적인 도메인 지정
+    allow_origins=["*"],
     allow_credentials=True,
     allow_methods=["*"],
     allow_headers=["*"],
 )
 
-# API 요청/응답 모델 정의
+# 요청/응답 모델 정의
 class AdvancedRecommendationRequest(BaseModel):
-    width: float = Field(..., gt=0, description="용기 가로 크기 (cm)")
-    length: float = Field(..., gt=0, description="용기 세로 크기 (cm)")
-    height: float = Field(..., gt=0, description="용기 높이 (cm)")
-    category: Optional[str] = Field(None, description="음식 카테고리 (한식, 중식, 일식, 양식, 기타)")
-    top_k: Optional[int] = Field(5, ge=1, le=5, description="추천 개수 (최대 5개)")
+    width: float = Field(..., gt=0)
+    length: float = Field(..., gt=0)
+    height: float = Field(..., gt=0)
+    category: Optional[str] = None
+    top_k: Optional[int] = Field(5, ge=1, le=5)
 
 class MenuScore(BaseModel):
     fit_score: float
@@ -67,6 +69,7 @@ class AdvancedMenuInfo(BaseModel):
     volume_utilization: float
     explanation: str
     contextual_boost: float
+    place_id: Optional[str] = None
 
 class AdvancedRecommendationResponse(BaseModel):
     status: str
@@ -74,17 +77,14 @@ class AdvancedRecommendationResponse(BaseModel):
     data: List[AdvancedMenuInfo]
     metadata: Dict[str, Any]
 
-# 기본 루트
 @app.get("/")
 def root():
-    """API 상태 및 기본 정보"""
     try:
         if advanced_ai is None:
-            return {
+            response = {
                 "message": "고도화된 AI 음식 추천 시스템",
                 "version": "2.0.0",
-                "status": "running",
-                "algorithm": "hybrid_filtering_v2.0",
+                "status": "error",
                 "error": "AI 모델이 로드되지 않았습니다",
                 "statistics": {
                     "total_menus": 0,
@@ -93,30 +93,34 @@ def root():
                     "max_recommendations": 5
                 }
             }
-        
-        return {
+        else:
+            response = {
+                "message": "고도화된 AI 음식 추천 시스템",
+                "version": "2.0.0",
+                "status": "running",
+                "algorithm": "hybrid_filtering_v2.0",
+                "features": [
+                    "콘텐츠 기반 필터링",
+                    "상황 인식 추천",
+                    "다양성 보장",
+                    "설명 가능한 AI",
+                    "지속적 학습"
+                ],
+                "statistics": {
+                    "total_menus": len(advanced_ai.menus_df),
+                    "total_restaurants": len(advanced_ai.restaurants_df),
+                    "categories": list(advanced_ai.menus_df['category'].unique()),
+                    "max_recommendations": getattr(advanced_ai, 'max_recommendations', 5)
+                }
+            }
+        return JSONResponse(
+            content=json.loads(json.dumps(response, ensure_ascii=False, default=str)),
+            media_type="application/json; charset=utf-8"
+        )
+    except Exception as e:
+        response = {
             "message": "고도화된 AI 음식 추천 시스템",
             "version": "2.0.0",
-            "status": "running",
-            "algorithm": "hybrid_filtering_v2.0",
-            "features": [
-                "콘텐츠 기반 필터링",
-                "상황 인식 추천",
-                "다양성 보장",
-                "설명 가능한 AI",
-                "지속적 학습"
-            ],
-            "statistics": {
-                "total_menus": len(advanced_ai.menus_df),
-                "total_restaurants": len(advanced_ai.restaurants_df),
-                "categories": list(advanced_ai.menus_df['category'].unique()),
-                "max_recommendations": getattr(advanced_ai, 'max_recommendations', 5)
-            }
-        }
-    except Exception as e:
-        return {
-            "message": "고도화된 AI 음식 추천 시스템",
-            "version": "2.0.0", 
             "status": "error",
             "error": str(e),
             "statistics": {
@@ -126,8 +130,11 @@ def root():
                 "max_recommendations": 5
             }
         }
+        return JSONResponse(
+            content=json.loads(json.dumps(response, ensure_ascii=False, default=str)),
+            media_type="application/json; charset=utf-8"
+        )
 
-# 헬스체크 엔드포인트
 @app.get("/health")
 def health_check():
     return {
@@ -135,20 +142,15 @@ def health_check():
         "ai_model_loaded": advanced_ai is not None
     }
 
-# 추천 API 엔드포인트
 @app.post("/recommend/advanced")
 def get_advanced_recommendations(request: AdvancedRecommendationRequest):
-    """
-    고도화된 하이브리드 AI 추천 시스템
-    """
     if advanced_ai is None:
         raise HTTPException(status_code=500, detail="AI 모델이 로드되지 않았습니다")
-    
+
     try:
         logger.info(f"고도화된 추천 요청: {request.width}x{request.length}x{request.height}")
         logger.info(f"카테고리: {request.category or '전체'}")
-        
-        # 하이브리드 추천 시스템 호출
+
         result = advanced_ai.get_hybrid_recommendations(
             user_width=request.width,
             user_length=request.length,
@@ -156,35 +158,41 @@ def get_advanced_recommendations(request: AdvancedRecommendationRequest):
             preferred_category=request.category,
             top_k=request.top_k
         )
-        
+
+        for item in result.get("data", []):
+            rest_id = item.get("restaurant_id")
+            if rest_id:
+                row = advanced_ai.restaurants_df[advanced_ai.restaurants_df["restaurant_id"] == rest_id]
+                item["place_id"] = str(row.iloc[0].get("place_id")) if not row.empty else None
+            else:
+                item["place_id"] = None
+
         logger.info(f"추천 결과: {result['status']}")
-        return result
-        
+        return JSONResponse(
+            content=json.loads(json.dumps(result, ensure_ascii=False, default=str)),
+            media_type="application/json; charset=utf-8"
+        )
+
     except Exception as e:
         logger.error(f"고도화된 추천 오류: {e}")
         raise HTTPException(status_code=500, detail=f"AI 추천 중 오류 발생: {str(e)}")
 
-# 간단한 추천 API (기존 코드와의 호환성)
 @app.post("/recommend/simple")
 def get_simple_recommendations(request: AdvancedRecommendationRequest):
-    """
-    간단한 추천 시스템 (기존 호환성)
-    """
     if advanced_ai is None:
         raise HTTPException(status_code=500, detail="AI 모델이 로드되지 않았습니다")
-    
+
     try:
         logger.info(f"간단한 추천 요청: {request.width}x{request.length}x{request.height}")
-        
-        # 기존 simple 추천 사용
+
         result = advanced_ai.get_simple_recommendations(
             width=request.width,
             length=request.length,
             height=request.height,
             top_k=request.top_k
         )
-        
-        return {
+
+        response = {
             "status": "success",
             "count": len(result),
             "recommendations": result,
@@ -195,25 +203,23 @@ def get_simple_recommendations(request: AdvancedRecommendationRequest):
                 "top_k": request.top_k
             }
         }
+        return JSONResponse(
+            content=json.loads(json.dumps(response, ensure_ascii=False, default=str)),
+            media_type="application/json; charset=utf-8"
+        )
     except Exception as e:
         logger.error(f"간단한 추천 처리 중 오류: {e}")
         raise HTTPException(status_code=500, detail=f"추천 처리 중 오류가 발생했습니다: {str(e)}")
 
-# 서버 실행
 if __name__ == "__main__":
     import uvicorn
     print("고도화된 AI 추천 시스템 서버 시작...")
-    print("서버 주소: http://127.0.0.1:8000")
-    print("API 문서: http://127.0.0.1:8000/docs")
-    print("주요 엔드포인트:")
-    print("   - POST /recommend/advanced : 고도화된 추천")
-    print("   - POST /recommend/simple   : 간단한 추천")
-    print("   - GET  /health            : 상태 확인")
-    print("서버 시작 중...")
-    
+    print("서버 주소: http://0.0.0.0:8000")
+    print("API 문서: http://<PC_IP>:8000/docs (예: http://10.50.98.201:8000/docs)")
     uvicorn.run(
-        app,  # 직접 app 객체 전달 (문자열 대신)
-        host="127.0.0.1",
+        app,
+        host="0.0.0.0", 
         port=8000,
         log_level="info"
     )
+

@@ -343,6 +343,7 @@ class AdvancedFoodRecommendationAI:
                         self.restaurants_df['restaurant_id'] == menu['restaurant_id']
                     ]
                     restaurant_name = restaurant_info['name'].iloc[0] if len(restaurant_info) > 0 else "알 수 없음"
+                    place_id = str(restaurant_info['place_id'].iloc[0]) if 'place_id' in restaurant_info.columns and len(restaurant_info) > 0 else None
                     
                     explanation = self._generate_explanation(fit_score, preference_score, 
                                                            content_score, contextual_multiplier)
@@ -368,6 +369,7 @@ class AdvancedFoodRecommendationAI:
                         "volume_utilization": round(volume_utilization, 1),
                         "explanation": explanation,
                         "contextual_boost": round((contextual_multiplier - 1) * 100, 1)
+                        "place_id": place_id
                     }
                     
                     recommendations.append(recommendation)
