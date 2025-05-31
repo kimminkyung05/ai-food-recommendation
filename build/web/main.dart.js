@@ -23703,7 +23703,7 @@ this.c=c},
 a6L(a,b,c,d){return A.aDr(a,b,c,d)},
 aDr(a,b,c,d){var s=0,r=A.T(t.BU),q,p,o,n,m,l,k,j
 var $async$a6L=A.U(function(e,f){if(e===1)return A.Q(f,r)
-while(true)switch(s){case 0:j=A.fW("https://ai-food-recommendation-rgb8.onrender.com/recommend/advanced",0,null)
+while(true)switch(s){case 0:j=A.fW("http://10.50.98.201:8000/recommend/advanced",0,null)
 A.h0("\ud83d\udd0d [\uc694\uccad \ud30c\ub77c\ubbf8\ud130]")
 A.h0("width: "+A.n(d))
 A.h0("length: "+A.n(c))
